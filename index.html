@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width,initial-scale=1">
+
+<title>豪華駅シミュレーター 完全版</title>
+
+<style>
+
+body{
+    margin:0;
+    background:skyblue;
+    text-align:center;
+    font-family:sans-serif;
+}
+
+h1{
+    margin:0;
+    padding:10px;
+    background:#003366;
+    color:white;
+}
+
+#clock{
+    font-size:24px;
+    margin:10px;
+}
+
+#counter{
+    font-size:22px;
+    margin:10px;
+}
+
+#led{
+    width:550px;
+    margin:auto;
+    background:black;
+    color:lime;
+    padding:10px;
+    font-weight:bold;
+    border:3px solid #444;
+}
+
+button{
+    font-size:20px;
+    padding:8px 16px;
+    margin:5px;
+}
+
+#station{
+    width:1200px;
+    height:520px;
+    margin:auto;
+    border:5px solid black;
+    position:relative;
+    overflow:hidden;
+    background:#d0d0d0;
+}
+
+.platform{
+    position:absolute;
+    width:100%;
+    height:30px;
+    background:#bbbbbb;
+}
+
+.track{
+    position:absolute;
+    width:100%;
+    height:30px;
+    background:#555;
+}
+
+.line{
+    position:absolute;
+    left:10px;
+    font-weight:bold;
+    font-size:22px;
+}
+
+.train{
+    position:absolute;
+    width:220px;
+    height:50px;
+
+    color:white;
+
+    border-radius:10px;
+    border:3px solid black;
+
+    display:flex;
+    align-items:center;
+    justify-content:center;
+
+    z-index:10;
+}
+
+.doorOpen{
+    border-left:10px solid yellow;
+    border-right:10px solid yellow;
+}
+
+.person{
+    position:absolute;
+    width:18px;
+    height:40px;
+    z-index:20;
+}
+
+.role{
+    text-align:center;
+    font-size:12px;
+}
+
+.head{
+    width:12px;
+    height:12px;
+    border-radius:50%;
+    background:#ffd6a0;
+    margin:auto;
+}
+
+.body{
+    width:10px;
+    height:14px;
+    margin:auto;
+}
+
+.legs{
+    width:10px;
+    height:10px;
+    margin:auto;
+    position:relative;
+}
+
+.legs::before{
+    content:"";
+    position:absolute;
+    left:1px;
+    width:3px;
+    height:10px;
+    background:black;
+}
+
+.legs::after{
+    content:"";
+    position:absolute;
+    right:1px;
+    width:3px;
+    height:10px;
+    background:black;
+}
+
+</style>
+</head>
+
+<body>
+
+<h1>🚉 豪華駅シミュレーター</h1>
+
+<div id="clock"></div>
+
+<div id="counter">
+本日の列車: 0本
+</div>
+
+<div id="led">
+発車案内
+</div>
+
+<br>
+
+<button onclick="startRecord()">
+🎤録音開始
+</button>
+
+<button onclick="stopRecord()">
+⏹録音停止
+</button>
+
+<audio
+id="audioPlayer"
+controls>
+</audio>
+
+<br><br>
+
+<input
+type="number"
+id="lineInput"
+min="1"
+max="5"
+value="1">
+
+<button onclick="callTrain()">
+🚃入線
+</button>
+
+<div id="station">
+
+<div class="platform" style="top:40px"></div>
+<div class="track" style="top:80px"></div>
+
+<div class="platform" style="top:120px"></div>
+<div class="track" style="top:160px"></div>
+
+<div class="platform" style="top:200px"></div>
+<div class="track" style="top:240px"></div>
+
+<div class="platform" style="top:280px"></div>
+<div class="track" style="top:320px"></div>
+
+<div class="platform" style="top:360px"></div>
+<div class="track" style="top:400px"></div>
+
+<div class="line" style="top:40px">1番線</div>
+<div class="line" style="top:120px">2番線</div>
+<div class="line" style="top:200px">3番線</div>
+<div class="line" style="top:280px">4番線</div>
+<div class="line" style="top:360px">5番線</div>
+
+</div>
+
+<script>
+const station =
+document.getElementById(
+    "station"
+);
+
+const player =
+document.getElementById(
+    "audioPlayer"
+);
+
+let trainCount = 0;
+
+let mediaRecorder;
+let audioChunks = [];
+
+function updateClock(){
+
+    const d =
+    new Date();
+
+    document.getElementById(
+        "clock"
+    ).textContent =
+    "🕒 " +
+    d.toLocaleTimeString();
+
+}
+
+setInterval(
+    updateClock,
+    1000
+);
+
+updateClock();
+
+async function startRecord(){
+
+    try{
+
+        const stream =
+        await navigator
+        .mediaDevices
+        .getUserMedia({
+            audio:true
+        });
+
+        mediaRecorder =
+        new MediaRecorder(
+            stream
+        );
+
+        audioChunks = [];
+
+        mediaRecorder.ondataavailable =
+        (e)=>{
+
+            audioChunks.push(
+                e.data
+            );
+
+        };
+
+        mediaRecorder.start();
+
+        document.getElementById(
+            "led"
+        ).textContent =
+        "🎤録音中";
+
+    }
+    catch(err){
+
+        alert(
+        "マイクが使えません"
+        );
+
+        console.error(
+            err
+        );
+
+    }
+
+}
+
+function stopRecord(){
+
+    if(
+        !mediaRecorder
+    ){
+        return;
+    }
+
+    mediaRecorder.stop();
+
+    mediaRecorder.onstop =
+    ()=>{
+
+        const blob =
+        new Blob(
+            audioChunks,
+            {
+                type:
+                "audio/webm"
+            }
+        );
+
+        player.src =
+        URL.createObjectURL(
+            blob
+        );
+
+        document.getElementById(
+            "led"
+        ).textContent =
+        "✅録音完了";
+
+    };
+
+}
+
+function personTop(line){
+
+    return{
+
+        1:50,
+        2:130,
+        3:210,
+        4:290,
+        5:370
+
+    }[line];
+
+}
+
+function trainTop(line){
+
+    return{
+
+        1:80,
+        2:160,
+        3:240,
+        4:320,
+        5:400
+
+    }[line];
+
+}
+
+const trainTypes = [
+
+{
+    name:"🚃 普通",
+    color:"red"
+},
+
+{
+    name:"🚄 快速",
+    color:"blue"
+},
+
+{
+    name:"🚆 特急",
+    color:"purple"
+},
+
+{
+    name:"🚅 新幹線",
+    color:"green"
+}
+
+];
+function movePassenger(
+    person
+){
+
+    let x =
+    parseFloat(
+        person.style.left
+    );
+
+    let direction =
+    Math.random() > 0.5
+    ? 1
+    : -1;
+
+    let speed =
+    0.5 +
+    Math.random();
+
+    setInterval(()=>{
+
+        x +=
+        speed *
+        direction;
+
+        if(x < 20){
+
+            direction = 1;
+
+        }
+
+        if(x > 1120){
+
+            direction = -1;
+
+        }
+
+        person.style.left =
+        x + "px";
+
+        person.style.transform =
+        `scaleX(${direction})`;
+
+    },50);
+
+}
+
+const jobs = [
+
+{
+    role:"👨",
+    color:"blue"
+},
+
+{
+    role:"👩",
+    color:"pink"
+},
+
+{
+    role:"🎒",
+    color:"green"
+},
+
+{
+    role:"👮",
+    color:"#222"
+},
+
+{
+    role:"🧳",
+    color:"brown"
+}
+
+];
+
+for(
+    let line=1;
+    line<=5;
+    line++
+){
+
+    for(
+        let i=0;
+        i<15;
+        i++
+    ){
+
+        const type =
+        jobs[
+            Math.floor(
+                Math.random()
+                * jobs.length
+            )
+        ];
+
+        const p =
+        document.createElement(
+            "div"
+        );
+
+        p.className =
+        "person";
+
+        p.innerHTML =
+        `
+        <div class="role">
+        ${type.role}
+        </div>
+
+        <div class="head"></div>
+
+        <div
+        class="body"
+        style="
+        background:
+        ${type.color}
+        ">
+        </div>
+
+        <div class="legs"></div>
+        `;
+
+        p.style.left =
+        (
+            50 +
+            Math.random()*1050
+        ) + "px";
+
+        p.style.top =
+        (
+            personTop(line)
+            +
+            Math.random()*15
+        ) + "px";
+
+        station.appendChild(
+            p
+        );
+
+        movePassenger(
+            p
+        );
+
+    }
+
+}
+function createTrain(line){
+
+    const type =
+    trainTypes[
+        Math.floor(
+            Math.random() *
+            trainTypes.length
+        )
+    ];
+
+    const train =
+    document.createElement(
+        "div"
+    );
+
+    train.className =
+    "train";
+
+    train.innerHTML =
+    type.name;
+
+    train.style.background =
+    type.color;
+
+    train.style.left =
+    "1250px";
+
+    train.style.top =
+    trainTop(line) + "px";
+
+    station.appendChild(
+        train
+    );
+
+    document.getElementById(
+        "led"
+    ).textContent =
+    line +
+    "番線 " +
+    type.name +
+    " 入線中";
+
+    let x = 1250;
+
+    const timer =
+    setInterval(()=>{
+
+        x -= 4;
+
+        train.style.left =
+        x + "px";
+
+        if(x <= 450){
+
+            clearInterval(
+                timer
+            );
+
+            train.classList.add(
+                "doorOpen"
+            );
+
+            document.getElementById(
+                "led"
+            ).textContent =
+            line +
+            "番線 " +
+            type.name +
+            " ドア開";
+
+            setTimeout(()=>{
+
+                document.getElementById(
+                    "led"
+                ).textContent =
+                "ドアが閉まります。ご注意ください";
+
+                setTimeout(()=>{
+
+                    train.classList.remove(
+                        "doorOpen"
+                    );
+
+                    departTrain(
+                        train,
+                        line,
+                        type
+                    );
+
+                },2000);
+
+            },20000);
+
+        }
+
+    },15);
+
+    trainCount++;
+
+    document.getElementById(
+        "counter"
+    ).textContent =
+    "本日の列車: " +
+    trainCount +
+    "本";
+
+}
+
+function callTrain(){
+
+    const line =
+    Number(
+        document.getElementById(
+            "lineInput"
+        ).value
+    );
+
+    if(
+        line < 1 ||
+        line > 5
+    ){
+
+        alert(
+        "1～5番線を入力してください"
+        );
+
+        return;
+
+    }
+
+    if(player.src){
+
+        document.getElementById(
+            "led"
+        ).textContent =
+        "🔊アナウンス中";
+
+        player.currentTime = 0;
+
+        player.play();
+
+        player.onended =
+        ()=>{
+
+            createTrain(
+                line
+            );
+
+        };
+
+    }else{
+
+        createTrain(
+            line
+        );
+
+    }
+
+}
+function departTrain(
+    train,
+    line,
+    type
+){
+
+    document.getElementById(
+        "led"
+    ).textContent =
+    line +
+    "番線 " +
+    type.name +
+    " 発車";
+
+    let x =
+    parseInt(
+        train.style.left
+    );
+
+    const timer =
+    setInterval(()=>{
+
+        x -= 5;
+
+        train.style.left =
+        x + "px";
+
+        if(x < -300){
+
+            clearInterval(
+                timer
+            );
+
+            train.remove();
+
+            document.getElementById(
+                "led"
+            ).textContent =
+            "発車案内";
+
+        }
+
+    },15);
+
+}
+
+/* 最初の表示 */
+
+document.getElementById(
+    "led"
+).textContent =
+"ようこそ 豪華駅シミュレーターへ";
+
+</script>
+
+</body>
+</html>
